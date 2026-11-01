@@ -129,56 +129,42 @@ export function CafeScene() {
   const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const R = 60;
-  function showStick(ox: number, oy: number, dx: number, dy: number, on: boolean) {
+  // One stick element only; it is hidden in place (no fade, no jump) so no ghost copy ever shows.
+  function showStick(ox: number, oy: number, dx: number, dy: number) {
     const b = base.current, k = knob.current; if (!b || !k) return;
-    b.style.opacity = on ? "1" : "0"; b.style.transform = `translate(${ox - R}px, ${oy - R}px)`;
+    b.style.visibility = "visible"; b.style.transform = `translate(${ox - R}px, ${oy - R}px)`;
     k.style.transform = `translate(${dx}px, ${dy}px)`;
   }
-  function startLook(e: PE) { lastLook.current = { x: e.clientX, y: e.clientY }; ctl.current.looking = true; }
+  function hideStick() { if (base.current) base.current.style.visibility = "hidden"; }
+  const local = (e: PE) => { const r = e.currentTarget.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width }; };
   function onDown(e: PE) {
+    const p = local(e);
+    const r = assignPointer(slots.current, e.pointerId, zoneFor(p.x, p.w));
+    if (!r.role) return;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
-    // Mouse on desktop: drag = camera (keys walk). Touch: first free finger walks, the next free one looks.
-    if (e.pointerType === "mouse") {
-      if (slots.current.look === null) { slots.current = { ...slots.current, look: e.pointerId }; startLook(e); }
-      return;
-    }
-    const r = assignPointer(slots.current, e.pointerId);
     slots.current = r.slots;
-    if (r.role === "move") { origin.current = { x: e.clientX, y: e.clientY }; showStick(e.clientX, e.clientY, 0, 0, true); }
-    else if (r.role === "look") startLook(e);
+    if (r.role === "move") { origin.current = { x: p.x, y: p.y }; ctl.current.touch = { x: 0, y: 0 }; showStick(p.x, p.y, 0, 0); }
+    else { lastLook.current = { x: p.x, y: p.y }; ctl.current.looking = true; }
   }
   function onMove(e: PE) {
+    const p = local(e);
     if (slots.current.move === e.pointerId) {
-      const s = stickVector(origin.current, { x: e.clientX, y: e.clientY }, R);
+      const s = stickVector(origin.current, p, R);
       origin.current = s.origin;
       ctl.current.touch = s.input;
-      showStick(s.origin.x, s.origin.y, s.knob.x, s.knob.y, true);
+      showStick(s.origin.x, s.origin.y, s.knob.x, s.knob.y);
     } else if (slots.current.look === e.pointerId) {
       const c = ctl.current;
-      c.camYawTarget -= (e.clientX - lastLook.current.x) * LOOK_SPEED;
-      c.pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, c.pitchTarget + (e.clientY - lastLook.current.y) * LOOK_SPEED * 0.6));
-      lastLook.current = { x: e.clientX, y: e.clientY };
+      c.camYawTarget -= (p.x - lastLook.current.x) * LOOK_SPEED;
+      c.pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, c.pitchTarget + (p.y - lastLook.current.y) * LOOK_SPEED * 0.7));
+      lastLook.current = { x: p.x, y: p.y };
     }
   }
   function onUp(e: PE) {
-    if (slots.current.move === e.pointerId) { ctl.current.touch = { x: 0, y: 0 }; showStick(0, 0, 0, 0, false); }
+    if (slots.current.move === e.pointerId) { ctl.current.touch = { x: 0, y: 0 }; hideStick(); }
     if (slots.current.look === e.pointerId) ctl.current.looking = false;
     slots.current = releasePointer(slots.current, e.pointerId);
   }
-  useEffect(() => {
-    const keys = new Set<string>();
-    const sync = () => {
-      const x = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft"));
-      const y = Number(keys.has("KeyS") || keys.has("ArrowDown")) - Number(keys.has("KeyW") || keys.has("ArrowUp"));
-      ctl.current.input = analogInput({ x, y });
-      ctl.current.fast = keys.has("ShiftLeft") || keys.has("ShiftRight");
-    };
-    const down = (e: KeyboardEvent) => { if (e.code.startsWith("Arrow") || e.code === "Space") e.preventDefault(); if (e.code === "KeyE") ctl.current.wave = 2; keys.add(e.code); sync(); };
-    const up = (e: KeyboardEvent) => { keys.delete(e.code); sync(); };
-    const blur = () => { keys.clear(); sync(); };
-    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("blur", blur);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); };
-  }, []);
 
   return (
     <div className="movement-shell relative h-dvh overflow-hidden bg-background">
