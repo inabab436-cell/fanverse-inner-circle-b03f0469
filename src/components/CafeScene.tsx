@@ -5,16 +5,20 @@ import * as THREE from "three";
 import { Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { advance, analogInput, type Vec } from "@/lib/movement";
+import { assignPointer, releasePointer, stickVector, type Slots } from "@/lib/touchControls";
 import robotModel from "@/assets/models/avatar-robot.glb.asset.json";
 
 const UNIT = 0.01; // movement px -> metres
 const ROOM = 460; // px
 const TABLE_R = 135; // px
 const LOOK_SPEED = 0.008; // radians of camera turn per dragged px
-const TURN = 12;
+const LOOK_SMOOTH = 18; // camera catch-up rate
+const FOLLOW_SMOOTH = 10; // camera target follow rate
+const TURN = 10; // body turn-to-camera rate
+const PITCH_DEFAULT = 0.42, PITCH_MIN = 0.12, PITCH_MAX = 0.9;
 type PE = import("react").PointerEvent<HTMLDivElement>;
 
-type Ctl = { input: Vec; fast: boolean; wave: number; pos: Vec; vel: Vec; yaw: number; camYaw: number; looking?: boolean };
+type Ctl = { input: Vec; touch: Vec; fast: boolean; wave: number; pos: Vec; vel: Vec; yaw: number; camYaw: number; camYawTarget: number; pitch: number; pitchTarget: number; looking?: boolean };
 
 function clampToRoom(p: Vec): Vec {
   let { x, y } = p;
@@ -28,32 +32,40 @@ function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
   const { scene, animations } = useGLTF(robotModel.url);
   const { actions } = useAnimations(animations, group);
   const current = useRef("");
+  const focus = useRef<THREE.Vector3 | null>(null);
   const scale = 0.22;
   useEffect(() => { scene.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; }); }, [scene]);
   useFrame((state, delta) => {
     const c = ctl.current;
     const dt = Math.min(delta, 0.05);
+    // camera smoothing (independent of movement input)
+    const k = 1 - Math.exp(-LOOK_SMOOTH * dt);
+    c.camYaw += (c.camYawTarget - c.camYaw) * k;
+    c.pitch += (c.pitchTarget - c.pitch) * k;
+    const raw = Math.hypot(c.input.x, c.input.y) ? c.input : c.touch;
     const cs = Math.cos(c.camYaw), sn = Math.sin(c.camYaw);
-    const world = { x: c.input.x * cs + c.input.y * sn, y: -c.input.x * sn + c.input.y * cs };
+    const world = { x: raw.x * cs + raw.y * sn, y: -raw.x * sn + raw.y * cs };
     const next = advance(c.pos, c.vel, world, c.fast, dt);
     c.vel = next.velocity;
     c.pos = clampToRoom({ x: next.position.x, y: next.position.y });
     const speed = Math.hypot(c.vel.x, c.vel.y);
-    if (speed > 15 && !c.looking) { const behind = c.yaw + Math.PI; c.camYaw += Math.atan2(Math.sin(behind - c.camYaw), Math.cos(behind - c.camYaw)) * (1 - Math.exp(-2 * dt)); }
-    if (speed > 15) { const target = Math.atan2(c.vel.x, c.vel.y); c.yaw += Math.atan2(Math.sin(target - c.yaw), Math.cos(target - c.yaw)) * (1 - Math.exp(-TURN * dt)); }
+    // body faces where the camera looks whenever walking or looking around
+    if (speed > 15 || c.looking) { const target = c.camYaw + Math.PI; c.yaw += Math.atan2(Math.sin(target - c.yaw), Math.cos(target - c.yaw)) * (1 - Math.exp(-TURN * dt)); }
     const g = group.current!;
     g.position.set(c.pos.x * UNIT, 0, c.pos.y * UNIT);
     g.rotation.y = c.yaw;
     if (c.wave > 0) c.wave -= dt;
     const want = c.wave > 0 ? "Wave" : speed > 200 ? "Running" : speed > 15 ? "Walking" : "Idle";
     if (want !== current.current) { actions[current.current]?.fadeOut(0.2); actions[want]?.reset().fadeIn(0.2).play(); current.current = want; }
-    // follow camera
+    // orbit camera: exact position from smoothed yaw/pitch around a smoothed focus point (no lag-induced jitter)
     const cam = state.camera;
-    const tx = g.position.x, tz = g.position.z;
+    const f = focus.current ?? (focus.current = new THREE.Vector3(g.position.x, 0.95, g.position.z));
+    f.lerp(new THREE.Vector3(g.position.x, 0.95, g.position.z), 1 - Math.exp(-FOLLOW_SMOOTH * dt));
     const portrait = state.size.height > state.size.width;
-    const back = portrait ? 3.6 : 2.6;
-    cam.position.lerp(new THREE.Vector3(tx + Math.sin(c.camYaw) * back, portrait ? 2.2 : 1.8, tz + Math.cos(c.camYaw) * back), 1 - Math.exp(-8 * dt));
-    cam.lookAt(tx - Math.sin(c.camYaw) * 0.4, 0.95, tz - Math.cos(c.camYaw) * 0.4);
+    const dist = portrait ? 3.8 : 2.9;
+    const h = Math.cos(c.pitch) * dist;
+    cam.position.set(f.x + Math.sin(c.camYaw) * h, f.y + Math.sin(c.pitch) * dist, f.z + Math.cos(c.camYaw) * h);
+    cam.lookAt(f.x, f.y, f.z);
     const host = state.gl.domElement.parentElement;
     host?.setAttribute("data-scene-ready", "1");
     host?.setAttribute("data-pos", `${c.pos.x.toFixed(1)},${c.pos.y.toFixed(1)}`);
