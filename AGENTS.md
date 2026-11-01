@@ -10,4 +10,5 @@
 <!-- LOVABLE:END -->
 
 - The active product is a client-side 3D (React Three Fiber, ssr:false) social space on the index route; keep legacy community data untouched while retiring its UI, to avoid destructive data loss.
-- Use dynamically imported nipplejs for touch movement, pure movement functions (src/lib/movement.ts, px units) for locomotion, and per-frame state in refs read by one useFrame; this keeps input and animation independent of React renders.
+- Touch input in the 3D scene uses pure slot assignment in src/lib/touchControls.ts (first free finger walks with a floating stick, next free finger orbits the camera; each slot released independently) so the two fingers never cancel each other.
+- Use pure movement functions (src/lib/movement.ts, px units) for locomotion, and per-frame state in refs read by one useFrame; this keeps input and animation independent of React renders.

@@ -5,16 +5,20 @@ import * as THREE from "three";
 import { Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { advance, analogInput, type Vec } from "@/lib/movement";
+import { assignPointer, releasePointer, stickVector, type Slots } from "@/lib/touchControls";
 import robotModel from "@/assets/models/avatar-robot.glb.asset.json";
 
 const UNIT = 0.01; // movement px -> metres
 const ROOM = 460; // px
 const TABLE_R = 135; // px
 const LOOK_SPEED = 0.008; // radians of camera turn per dragged px
-const TURN = 12;
+const LOOK_SMOOTH = 18; // camera catch-up rate
+const FOLLOW_SMOOTH = 10; // camera target follow rate
+const TURN = 10; // body turn-to-camera rate
+const PITCH_DEFAULT = 0.42, PITCH_MIN = 0.12, PITCH_MAX = 0.9;
 type PE = import("react").PointerEvent<HTMLDivElement>;
 
-type Ctl = { input: Vec; fast: boolean; wave: number; pos: Vec; vel: Vec; yaw: number; camYaw: number; looking?: boolean };
+type Ctl = { input: Vec; touch: Vec; fast: boolean; wave: number; pos: Vec; vel: Vec; yaw: number; camYaw: number; camYawTarget: number; pitch: number; pitchTarget: number; looking?: boolean };
 
 function clampToRoom(p: Vec): Vec {
   let { x, y } = p;
@@ -28,32 +32,40 @@ function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
   const { scene, animations } = useGLTF(robotModel.url);
   const { actions } = useAnimations(animations, group);
   const current = useRef("");
+  const focus = useRef<THREE.Vector3 | null>(null);
   const scale = 0.22;
   useEffect(() => { scene.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; }); }, [scene]);
   useFrame((state, delta) => {
     const c = ctl.current;
     const dt = Math.min(delta, 0.05);
+    // camera smoothing (independent of movement input)
+    const k = 1 - Math.exp(-LOOK_SMOOTH * dt);
+    c.camYaw += (c.camYawTarget - c.camYaw) * k;
+    c.pitch += (c.pitchTarget - c.pitch) * k;
+    const raw = Math.hypot(c.input.x, c.input.y) ? c.input : c.touch;
     const cs = Math.cos(c.camYaw), sn = Math.sin(c.camYaw);
-    const world = { x: c.input.x * cs + c.input.y * sn, y: -c.input.x * sn + c.input.y * cs };
+    const world = { x: raw.x * cs + raw.y * sn, y: -raw.x * sn + raw.y * cs };
     const next = advance(c.pos, c.vel, world, c.fast, dt);
     c.vel = next.velocity;
     c.pos = clampToRoom({ x: next.position.x, y: next.position.y });
     const speed = Math.hypot(c.vel.x, c.vel.y);
-    if (speed > 15 && !c.looking) { const behind = c.yaw + Math.PI; c.camYaw += Math.atan2(Math.sin(behind - c.camYaw), Math.cos(behind - c.camYaw)) * (1 - Math.exp(-2 * dt)); }
-    if (speed > 15) { const target = Math.atan2(c.vel.x, c.vel.y); c.yaw += Math.atan2(Math.sin(target - c.yaw), Math.cos(target - c.yaw)) * (1 - Math.exp(-TURN * dt)); }
+    // body faces where the camera looks whenever walking or looking around
+    if (speed > 15 || c.looking) { const target = c.camYaw + Math.PI; c.yaw += Math.atan2(Math.sin(target - c.yaw), Math.cos(target - c.yaw)) * (1 - Math.exp(-TURN * dt)); }
     const g = group.current!;
     g.position.set(c.pos.x * UNIT, 0, c.pos.y * UNIT);
     g.rotation.y = c.yaw;
     if (c.wave > 0) c.wave -= dt;
     const want = c.wave > 0 ? "Wave" : speed > 200 ? "Running" : speed > 15 ? "Walking" : "Idle";
     if (want !== current.current) { actions[current.current]?.fadeOut(0.2); actions[want]?.reset().fadeIn(0.2).play(); current.current = want; }
-    // follow camera
+    // orbit camera: exact position from smoothed yaw/pitch around a smoothed focus point (no lag-induced jitter)
     const cam = state.camera;
-    const tx = g.position.x, tz = g.position.z;
+    const f = focus.current ?? (focus.current = new THREE.Vector3(g.position.x, 0.95, g.position.z));
+    f.lerp(new THREE.Vector3(g.position.x, 0.95, g.position.z), 1 - Math.exp(-FOLLOW_SMOOTH * dt));
     const portrait = state.size.height > state.size.width;
-    const back = portrait ? 3.6 : 2.6;
-    cam.position.lerp(new THREE.Vector3(tx + Math.sin(c.camYaw) * back, portrait ? 2.2 : 1.8, tz + Math.cos(c.camYaw) * back), 1 - Math.exp(-8 * dt));
-    cam.lookAt(tx - Math.sin(c.camYaw) * 0.4, 0.95, tz - Math.cos(c.camYaw) * 0.4);
+    const dist = portrait ? 3.8 : 2.9;
+    const h = Math.cos(c.pitch) * dist;
+    cam.position.set(f.x + Math.sin(c.camYaw) * h, f.y + Math.sin(c.pitch) * dist, f.z + Math.cos(c.camYaw) * h);
+    cam.lookAt(f.x, f.y, f.z);
     const host = state.gl.domElement.parentElement;
     host?.setAttribute("data-scene-ready", "1");
     host?.setAttribute("data-pos", `${c.pos.x.toFixed(1)},${c.pos.y.toFixed(1)}`);
@@ -110,9 +122,10 @@ function Room() {
 }
 
 export function CafeScene() {
-  const ctl = useRef<Ctl>({ input: { x: 0, y: 0 }, fast: false, wave: 0, pos: { x: 120, y: 260 }, vel: { x: 0, y: 0 }, yaw: 0, camYaw: 0 });
-  const look = useRef<{ id: number; x: number } | null>(null);
-  const move = useRef<{ id: number; ox: number; oy: number } | null>(null);
+  const ctl = useRef<Ctl>({ input: { x: 0, y: 0 }, touch: { x: 0, y: 0 }, fast: false, wave: 0, pos: { x: 120, y: 260 }, vel: { x: 0, y: 0 }, yaw: Math.PI, camYaw: 0, camYawTarget: 0, pitch: PITCH_DEFAULT, pitchTarget: PITCH_DEFAULT });
+  const slots = useRef<Slots>({ move: null, look: null });
+  const origin = useRef({ x: 0, y: 0 });
+  const lastLook = useRef({ x: 0, y: 0 });
   const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const R = 60;
@@ -121,24 +134,36 @@ export function CafeScene() {
     b.style.opacity = on ? "1" : "0"; b.style.transform = `translate(${ox - R}px, ${oy - R}px)`;
     k.style.transform = `translate(${dx}px, ${dy}px)`;
   }
+  function startLook(e: PE) { lastLook.current = { x: e.clientX, y: e.clientY }; ctl.current.looking = true; }
   function onDown(e: PE) {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    if (e.isPrimary) { move.current = null; look.current = null; ctl.current.looking = false; }
-    if (!move.current) { move.current = { id: e.pointerId, ox: e.clientX, oy: e.clientY }; showStick(e.clientX, e.clientY, 0, 0, true); }
-    else { look.current = { id: e.pointerId, x: e.clientX }; ctl.current.looking = true; }
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+    // Mouse on desktop: drag = camera (keys walk). Touch: first free finger walks, the next free one looks.
+    if (e.pointerType === "mouse") {
+      if (slots.current.look === null) { slots.current = { ...slots.current, look: e.pointerId }; startLook(e); }
+      return;
+    }
+    const r = assignPointer(slots.current, e.pointerId);
+    slots.current = r.slots;
+    if (r.role === "move") { origin.current = { x: e.clientX, y: e.clientY }; showStick(e.clientX, e.clientY, 0, 0, true); }
+    else if (r.role === "look") startLook(e);
   }
   function onMove(e: PE) {
-    const m = move.current, l = look.current;
-    if (m && m.id === e.pointerId) {
-      let dx = e.clientX - m.ox, dy = e.clientY - m.oy; const d = Math.hypot(dx, dy);
-      if (d > R) { dx *= R / d; dy *= R / d; }
-      ctl.current.input = analogInput({ x: dx / R, y: dy / R });
-      showStick(m.ox, m.oy, dx, dy, true);
-    } else if (l && l.id === e.pointerId) { ctl.current.camYaw -= (e.clientX - l.x) * LOOK_SPEED; l.x = e.clientX; }
+    if (slots.current.move === e.pointerId) {
+      const s = stickVector(origin.current, { x: e.clientX, y: e.clientY }, R);
+      origin.current = s.origin;
+      ctl.current.touch = s.input;
+      showStick(s.origin.x, s.origin.y, s.knob.x, s.knob.y, true);
+    } else if (slots.current.look === e.pointerId) {
+      const c = ctl.current;
+      c.camYawTarget -= (e.clientX - lastLook.current.x) * LOOK_SPEED;
+      c.pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, c.pitchTarget + (e.clientY - lastLook.current.y) * LOOK_SPEED * 0.6));
+      lastLook.current = { x: e.clientX, y: e.clientY };
+    }
   }
   function onUp(e: PE) {
-    if (move.current?.id === e.pointerId) { move.current = null; ctl.current.input = { x: 0, y: 0 }; showStick(0, 0, 0, 0, false); }
-    if (look.current?.id === e.pointerId) { look.current = null; ctl.current.looking = false; }
+    if (slots.current.move === e.pointerId) { ctl.current.touch = { x: 0, y: 0 }; showStick(0, 0, 0, 0, false); }
+    if (slots.current.look === e.pointerId) ctl.current.looking = false;
+    slots.current = releasePointer(slots.current, e.pointerId);
   }
   useEffect(() => {
     const keys = new Set<string>();
