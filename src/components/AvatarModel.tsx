@@ -9,7 +9,7 @@ import { UNIFORM_CELLS, type Gender } from "@/lib/avatar";
 
 export const AVATAR_HEIGHT = 1.45; // metres
 /** Chest print placement in metres relative to the torso bone. */
-export const PRINT = { size: 0.2, y: { boy: 0.2, girl: 0.2 } as Record<Gender, number>, z: { boy: 0.12, girl: 0.12 } as Record<Gender, number> };
+export const PRINT = { size: 0.22, y: { boy: 0.13, girl: 0.13 } as Record<Gender, number>, z: { boy: 0.235, girl: 0.235 } as Record<Gender, number> };
 export const modelUrl = (g: Gender) => (g === "boy" ? boyModel.url : girlModel.url);
 
 function uniformTexture(src: THREE.Texture, g: Gender) {
