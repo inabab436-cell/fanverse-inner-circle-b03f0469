@@ -1,0 +1,15 @@
+# Roadmap
+- [ ] Replace active old features with phone-first 2D walking and viewing, without world design.
+- [ ] Verify touch movement, camera, and desktop fallback.
+- [x] Live room (realtime chat + presence) inside artist world
+- [x] Artist role: pinned artist lines + "nod" on fan messages
+- [x] Quick reactions + random topic button in room
+- [x] Questions & live voting tab
+- [ ] Link Elissa's official account to the artist role — waiting on the account email from the user
+- تصميم لوجو يعبّر عن فكرة المنصة (الفانز يدورون حول الفنان)
+- اللوجو يجب أن يعبّر عن الترابط بين الفانز (دوائر متساوية متصلة، بلا مركز مهيمن) وليس فكرة مركز يدور حوله جمهور
+- بريف اللوجو من المستخدم: مفهوم المدار (انتماء + ترابط + حركة وتجدد) مع لمسة مرحة حتى لا يُظن أنه لوجو أقمار صناعية
+- تطوير اتجاه لوجو العالم المبتسم (concept-8) بإصدار أنظف وأكثر توازنًا
+- طلب المستخدم: إصدارات أقوى تعبيرًا عن فكرة orbit (انتماء/ترابط/حركة) مع الحفاظ على البساطة المرحة
+- المستخدم اختار concept-10 وطلب إضافة كلمة orbit تحته مع تظبيط الشكل قليلًا (تم رفع الصورة من عنده)
+- المستخدم طلب النسخة المبتسمة (final-2) بخلفية بيضاء كملف يحفظه
