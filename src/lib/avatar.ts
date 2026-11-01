@@ -13,8 +13,8 @@ export function saveGender(g: Gender) {
   try { window.localStorage.setItem(KEY, g); } catch { /* storage unavailable */ }
 }
 
-/** Shared fan uniform: one palette for everyone; boy and girl differ only in cut and details. */
-export const UNIFORM = { base: "#16181d", shirt: "#0e6e73", accent: "#d4a645" };
+/** Shared fan uniform: black tee with the Elissa print for everyone; boy and girl differ only in cut and details. */
+export const UNIFORM = { base: "#16181d", shirt: "#111214", accent: "#d4a645" };
 
 /** Texture-atlas cells (32x64 px columns/rows of the 512px colormap) recoloured per model. */
 export type Recolor = { col: number; row: number; color: string };
