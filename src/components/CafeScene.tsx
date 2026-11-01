@@ -136,7 +136,7 @@ export function CafeScene() {
   }
   function startLook(e: PE) { lastLook.current = { x: e.clientX, y: e.clientY }; ctl.current.looking = true; }
   function onDown(e: PE) {
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     // Mouse on desktop: drag = camera (keys walk). Touch: first free finger walks, the next free one looks.
     if (e.pointerType === "mouse") {
       if (slots.current.look === null) { slots.current = { ...slots.current, look: e.pointerId }; startLook(e); }
