@@ -1,12 +1,17 @@
-// Pure multi-touch assignment: one finger drives movement, another drives the camera.
-// Each slot is owned by exactly one pointer id, so lifting one finger never resets the other.
+// PUBG-style split screen: a finger that lands on the left half walks, a finger on the right half aims the camera.
+// Each side is owned by one pointer id, so lifting one finger never resets the other.
 export type Slots = { move: number | null; look: number | null };
+export type Role = "move" | "look";
 
-export function assignPointer(slots: Slots, id: number): { slots: Slots; role: "move" | "look" | null } {
-  if (slots.move === id || slots.look === id) return { slots, role: slots.move === id ? "move" : "look" };
-  if (slots.move === null) return { slots: { ...slots, move: id }, role: "move" };
-  if (slots.look === null) return { slots: { ...slots, look: id }, role: "look" };
-  return { slots, role: null };
+export function zoneFor(x: number, width: number): Role {
+  return x < width * 0.5 ? "move" : "look";
+}
+
+export function assignPointer(slots: Slots, id: number, zone: Role): { slots: Slots; role: Role | null } {
+  if (slots.move === id) return { slots, role: "move" };
+  if (slots.look === id) return { slots, role: "look" };
+  if (slots[zone] !== null) return { slots, role: null };
+  return { slots: { ...slots, [zone]: id }, role: zone };
 }
 
 export function releasePointer(slots: Slots, id: number): Slots {
