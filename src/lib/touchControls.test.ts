@@ -1,25 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { assignPointer, releasePointer, stickVector } from "./touchControls";
+import { assignPointer, releasePointer, stickVector, zoneFor } from "./touchControls";
 
 describe("touch controls", () => {
-  it("first finger moves, second finger looks", () => {
-    const a = assignPointer({ move: null, look: null }, 1);
-    const b = assignPointer(a.slots, 2);
-    expect(a.role).toBe("move");
-    expect(b.role).toBe("look");
+  it("left half walks, right half aims", () => {
+    expect(zoneFor(100, 400)).toBe("move");
+    expect(zoneFor(300, 400)).toBe("look");
   });
-  it("lifting the move finger keeps the look finger active", () => {
-    const s = releasePointer({ move: 1, look: 2 }, 1);
-    expect(s).toEqual({ move: null, look: 2 });
-    expect(assignPointer(s, 3).role).toBe("move");
+  it("both fingers work at once", () => {
+    const a = assignPointer({ move: null, look: null }, 1, "move");
+    const b = assignPointer(a.slots, 2, "look");
+    expect(b.slots).toEqual({ move: 1, look: 2 });
   });
-  it("lifting the look finger keeps movement active", () => {
+  it("a second finger on an occupied side is ignored, so only one stick shows", () => {
+    expect(assignPointer({ move: 1, look: null }, 3, "move").role).toBeNull();
+  });
+  it("lifting one finger keeps the other active", () => {
+    expect(releasePointer({ move: 1, look: 2 }, 1)).toEqual({ move: null, look: 2 });
     expect(releasePointer({ move: 1, look: 2 }, 2)).toEqual({ move: 1, look: null });
   });
-  it("third finger is ignored", () => {
-    expect(assignPointer({ move: 1, look: 2 }, 3).role).toBeNull();
-  });
-  it("stick supports diagonal and full 360 input, origin follows finger", () => {
+  it("stick supports diagonal input and origin follows finger", () => {
     const r = stickVector({ x: 0, y: 0 }, { x: 200, y: 200 }, 60);
     expect(Math.hypot(r.input.x, r.input.y)).toBeCloseTo(1, 3);
     expect(r.input.x).toBeCloseTo(r.input.y, 5);

@@ -4,17 +4,18 @@ import { ContactShadows, Environment, Lightformer, useAnimations, useGLTF } from
 import * as THREE from "three";
 import { Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { advance, analogInput, type Vec } from "@/lib/movement";
-import { assignPointer, releasePointer, stickVector, type Slots } from "@/lib/touchControls";
+import { advance, type Vec } from "@/lib/movement";
+import { assignPointer, releasePointer, stickVector, zoneFor, type Slots } from "@/lib/touchControls";
 import robotModel from "@/assets/models/avatar-robot.glb.asset.json";
 
 const UNIT = 0.01; // movement px -> metres
 const ROOM = 460; // px
 const TABLE_R = 135; // px
-const LOOK_SPEED = 0.008; // radians of camera turn per dragged px
-const LOOK_SMOOTH = 18; // camera catch-up rate
+const LOOK_SPEED = 0.0075; // radians of camera turn per dragged px
+const LOOK_SMOOTH = 30; // camera catch-up rate
 const FOLLOW_SMOOTH = 10; // camera target follow rate
 const TURN = 10; // body turn-to-camera rate
+const SHOULDER = 0.35;
 const PITCH_DEFAULT = 0.42, PITCH_MIN = 0.12, PITCH_MAX = 0.9;
 type PE = import("react").PointerEvent<HTMLDivElement>;
 
@@ -42,7 +43,7 @@ function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
     const k = 1 - Math.exp(-LOOK_SMOOTH * dt);
     c.camYaw += (c.camYawTarget - c.camYaw) * k;
     c.pitch += (c.pitchTarget - c.pitch) * k;
-    const raw = Math.hypot(c.input.x, c.input.y) ? c.input : c.touch;
+    const raw = c.touch;
     const cs = Math.cos(c.camYaw), sn = Math.sin(c.camYaw);
     const world = { x: raw.x * cs + raw.y * sn, y: -raw.x * sn + raw.y * cs };
     const next = advance(c.pos, c.vel, world, c.fast, dt);
@@ -64,8 +65,9 @@ function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
     const portrait = state.size.height > state.size.width;
     const dist = portrait ? 3.8 : 2.9;
     const h = Math.cos(c.pitch) * dist;
-    cam.position.set(f.x + Math.sin(c.camYaw) * h, f.y + Math.sin(c.pitch) * dist, f.z + Math.cos(c.camYaw) * h);
-    cam.lookAt(f.x, f.y, f.z);
+    const sx = Math.cos(c.camYaw) * SHOULDER, sz = -Math.sin(c.camYaw) * SHOULDER; // over-the-shoulder offset
+    cam.position.set(f.x + sx + Math.sin(c.camYaw) * h, f.y + Math.sin(c.pitch) * dist, f.z + sz + Math.cos(c.camYaw) * h);
+    cam.lookAt(f.x + sx, f.y + 0.15, f.z + sz);
     const host = state.gl.domElement.parentElement;
     host?.setAttribute("data-scene-ready", "1");
     host?.setAttribute("data-pos", `${c.pos.x.toFixed(1)},${c.pos.y.toFixed(1)}`);
@@ -129,56 +131,42 @@ export function CafeScene() {
   const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const R = 60;
-  function showStick(ox: number, oy: number, dx: number, dy: number, on: boolean) {
+  // One stick element only; it is hidden in place (no fade, no jump) so no ghost copy ever shows.
+  function showStick(ox: number, oy: number, dx: number, dy: number) {
     const b = base.current, k = knob.current; if (!b || !k) return;
-    b.style.opacity = on ? "1" : "0"; b.style.transform = `translate(${ox - R}px, ${oy - R}px)`;
+    b.style.visibility = "visible"; b.style.transform = `translate(${ox - R}px, ${oy - R}px)`;
     k.style.transform = `translate(${dx}px, ${dy}px)`;
   }
-  function startLook(e: PE) { lastLook.current = { x: e.clientX, y: e.clientY }; ctl.current.looking = true; }
+  function hideStick() { if (base.current) base.current.style.visibility = "hidden"; }
+  const local = (e: PE) => { const r = e.currentTarget.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width }; };
   function onDown(e: PE) {
+    const p = local(e);
+    const r = assignPointer(slots.current, e.pointerId, zoneFor(p.x, p.w));
+    if (!r.role) return;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
-    // Mouse on desktop: drag = camera (keys walk). Touch: first free finger walks, the next free one looks.
-    if (e.pointerType === "mouse") {
-      if (slots.current.look === null) { slots.current = { ...slots.current, look: e.pointerId }; startLook(e); }
-      return;
-    }
-    const r = assignPointer(slots.current, e.pointerId);
     slots.current = r.slots;
-    if (r.role === "move") { origin.current = { x: e.clientX, y: e.clientY }; showStick(e.clientX, e.clientY, 0, 0, true); }
-    else if (r.role === "look") startLook(e);
+    if (r.role === "move") { origin.current = { x: p.x, y: p.y }; ctl.current.touch = { x: 0, y: 0 }; showStick(p.x, p.y, 0, 0); }
+    else { lastLook.current = { x: p.x, y: p.y }; ctl.current.looking = true; }
   }
   function onMove(e: PE) {
+    const p = local(e);
     if (slots.current.move === e.pointerId) {
-      const s = stickVector(origin.current, { x: e.clientX, y: e.clientY }, R);
+      const s = stickVector(origin.current, p, R);
       origin.current = s.origin;
       ctl.current.touch = s.input;
-      showStick(s.origin.x, s.origin.y, s.knob.x, s.knob.y, true);
+      showStick(s.origin.x, s.origin.y, s.knob.x, s.knob.y);
     } else if (slots.current.look === e.pointerId) {
       const c = ctl.current;
-      c.camYawTarget -= (e.clientX - lastLook.current.x) * LOOK_SPEED;
-      c.pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, c.pitchTarget + (e.clientY - lastLook.current.y) * LOOK_SPEED * 0.6));
-      lastLook.current = { x: e.clientX, y: e.clientY };
+      c.camYawTarget -= (p.x - lastLook.current.x) * LOOK_SPEED;
+      c.pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, c.pitchTarget + (p.y - lastLook.current.y) * LOOK_SPEED * 0.7));
+      lastLook.current = { x: p.x, y: p.y };
     }
   }
   function onUp(e: PE) {
-    if (slots.current.move === e.pointerId) { ctl.current.touch = { x: 0, y: 0 }; showStick(0, 0, 0, 0, false); }
+    if (slots.current.move === e.pointerId) { ctl.current.touch = { x: 0, y: 0 }; hideStick(); }
     if (slots.current.look === e.pointerId) ctl.current.looking = false;
     slots.current = releasePointer(slots.current, e.pointerId);
   }
-  useEffect(() => {
-    const keys = new Set<string>();
-    const sync = () => {
-      const x = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft"));
-      const y = Number(keys.has("KeyS") || keys.has("ArrowDown")) - Number(keys.has("KeyW") || keys.has("ArrowUp"));
-      ctl.current.input = analogInput({ x, y });
-      ctl.current.fast = keys.has("ShiftLeft") || keys.has("ShiftRight");
-    };
-    const down = (e: KeyboardEvent) => { if (e.code.startsWith("Arrow") || e.code === "Space") e.preventDefault(); if (e.code === "KeyE") ctl.current.wave = 2; keys.add(e.code); sync(); };
-    const up = (e: KeyboardEvent) => { keys.delete(e.code); sync(); };
-    const blur = () => { keys.clear(); sync(); };
-    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("blur", blur);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); };
-  }, []);
 
   return (
     <div className="movement-shell relative h-dvh overflow-hidden bg-background">
@@ -201,9 +189,9 @@ export function CafeScene() {
           <p className="mt-1 text-xs text-muted-foreground">المقهى · امشِ حول الطاولة</p>
         </div>
       </header>
-      <div className="absolute inset-0 touch-none select-none" aria-label="إصبع للمشي وإصبع ثانٍ للالتفات" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
-      <div ref={base} className="pointer-events-none absolute left-0 top-0 z-10 flex h-[120px] w-[120px] items-center justify-center rounded-full border-2 border-primary/40 bg-secondary/40 opacity-0 transition-opacity"><div ref={knob} className="h-12 w-12 rounded-full bg-primary/80 shadow-soft" /></div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-around text-xs text-muted-foreground"><span>إصبع: اسحب للمشي · إصبع ثانٍ: اسحب للالتفات</span></div>
+      <div className="absolute inset-0 touch-none select-none" aria-label="يسار الشاشة للمشي ويمينها لتحريك الكاميرا" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
+      <div ref={base} className="pointer-events-none absolute left-0 top-0 z-10 flex h-[120px] w-[120px] items-center justify-center rounded-full border-2 border-primary/40 bg-secondary/40 invisible"><div ref={knob} className="h-12 w-12 rounded-full bg-primary/80 shadow-soft" /></div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-around text-xs text-muted-foreground"><span>يسار الشاشة: المشي · يمين الشاشة: الاتجاه</span></div>
       <Button variant="outline" className="movement-actions absolute bottom-8 right-6 z-10 h-14 w-14 rounded-full border-2 bg-card text-primary" aria-label="تلويح" onClick={() => { ctl.current.wave = 2; }}><Hand className="size-6" /></Button>
     </div>
   );
