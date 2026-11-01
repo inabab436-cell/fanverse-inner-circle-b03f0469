@@ -124,7 +124,7 @@ function Room() {
   );
 }
 
-export function CafeScene() {
+export function CafeScene({ gender }: { gender: Gender }) {
   const ctl = useRef<Ctl>({ input: { x: 0, y: 0 }, touch: { x: 0, y: 0 }, fast: false, wave: 0, pos: { x: 120, y: 260 }, vel: { x: 0, y: 0 }, yaw: Math.PI, camYaw: 0, camYawTarget: 0, pitch: PITCH_DEFAULT, pitchTarget: PITCH_DEFAULT });
   const slots = useRef<Slots>({ move: null, look: null });
   const origin = useRef({ x: 0, y: 0 });
@@ -182,7 +182,7 @@ export function CafeScene() {
         </Environment>
         <Room />
         <ContactShadows position={[0, 0.01, 0]} opacity={0.35} scale={12} blur={2} far={3} />
-        <Suspense fallback={null}><Avatar ctl={ctl} /></Suspense>
+        <Suspense fallback={null}><Avatar ctl={ctl} gender={gender} /></Suspense>
       </Canvas>
       <header className="movement-header pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 px-5 pt-5">
         <div>
@@ -198,4 +198,3 @@ export function CafeScene() {
   );
 }
 
-useGLTF.preload(robotModel.url);
