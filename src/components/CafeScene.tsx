@@ -1,12 +1,14 @@
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { ContactShadows, Environment, Lightformer, useAnimations, useGLTF } from "@react-three/drei";
+import { ContactShadows, Environment, Lightformer, useAnimations } from "@react-three/drei";
 import * as THREE from "three";
-import { Hand } from "lucide-react";
+import { Hand, UserRound } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { advance, type Vec } from "@/lib/movement";
 import { assignPointer, releasePointer, stickVector, zoneFor, type Slots } from "@/lib/touchControls";
-import robotModel from "@/assets/models/avatar-robot.glb.asset.json";
+import { useAvatar } from "@/components/AvatarModel";
+import type { Gender } from "@/lib/avatar";
 
 const UNIT = 0.01; // movement px -> metres
 const ROOM = 460; // px
@@ -28,14 +30,12 @@ function clampToRoom(p: Vec): Vec {
   return { x: Math.max(-ROOM, Math.min(ROOM, x)), y: Math.max(-ROOM, Math.min(ROOM, y)) };
 }
 
-function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
+function Avatar({ ctl, gender }: { ctl: React.MutableRefObject<Ctl>; gender: Gender }) {
   const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF(robotModel.url);
+  const { obj, animations } = useAvatar(gender);
   const { actions } = useAnimations(animations, group);
   const current = useRef("");
   const focus = useRef<THREE.Vector3 | null>(null);
-  const scale = 0.22;
-  useEffect(() => { scene.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; }); }, [scene]);
   useFrame((state, delta) => {
     const c = ctl.current;
     const dt = Math.min(delta, 0.05);
@@ -56,14 +56,15 @@ function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
     g.position.set(c.pos.x * UNIT, 0, c.pos.y * UNIT);
     g.rotation.y = c.yaw;
     if (c.wave > 0) c.wave -= dt;
-    const want = c.wave > 0 ? "Wave" : speed > 200 ? "Running" : speed > 15 ? "Walking" : "Idle";
+    const want = c.wave > 0 ? "emote-yes" : speed > 200 ? "sprint" : speed > 15 ? "walk" : "idle";
     if (want !== current.current) { actions[current.current]?.fadeOut(0.2); actions[want]?.reset().fadeIn(0.2).play(); current.current = want; }
+    const walkAct = actions["walk"]; if (walkAct) walkAct.timeScale = Math.max(0.6, speed / 120);
     // orbit camera: exact position from smoothed yaw/pitch around a smoothed focus point (no lag-induced jitter)
     const cam = state.camera;
     const f = focus.current ?? (focus.current = new THREE.Vector3(g.position.x, 0.95, g.position.z));
     f.lerp(new THREE.Vector3(g.position.x, 0.95, g.position.z), 1 - Math.exp(-FOLLOW_SMOOTH * dt));
     const portrait = state.size.height > state.size.width;
-    const dist = portrait ? 3.8 : 2.9;
+    const dist = portrait ? 4.6 : 3.6;
     const h = Math.cos(c.pitch) * dist;
     const sx = Math.cos(c.camYaw) * SHOULDER, sz = -Math.sin(c.camYaw) * SHOULDER; // over-the-shoulder offset
     cam.position.set(f.x + sx + Math.sin(c.camYaw) * h, f.y + Math.sin(c.pitch) * dist, f.z + sz + Math.cos(c.camYaw) * h);
@@ -72,7 +73,7 @@ function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
     host?.setAttribute("data-scene-ready", "1");
     host?.setAttribute("data-pos", `${c.pos.x.toFixed(1)},${c.pos.y.toFixed(1)}`);
   });
-  return <group ref={group}><primitive object={scene} scale={scale} /></group>;
+  return <group ref={group}><primitive object={obj} /></group>;
 }
 
 function woodTexture() {
@@ -123,7 +124,7 @@ function Room() {
   );
 }
 
-export function CafeScene() {
+export function CafeScene({ gender }: { gender: Gender }) {
   const ctl = useRef<Ctl>({ input: { x: 0, y: 0 }, touch: { x: 0, y: 0 }, fast: false, wave: 0, pos: { x: 120, y: 260 }, vel: { x: 0, y: 0 }, yaw: Math.PI, camYaw: 0, camYawTarget: 0, pitch: PITCH_DEFAULT, pitchTarget: PITCH_DEFAULT });
   const slots = useRef<Slots>({ move: null, look: null });
   const origin = useRef({ x: 0, y: 0 });
@@ -181,13 +182,14 @@ export function CafeScene() {
         </Environment>
         <Room />
         <ContactShadows position={[0, 0.01, 0]} opacity={0.35} scale={12} blur={2} far={3} />
-        <Suspense fallback={null}><Avatar ctl={ctl} /></Suspense>
+        <Suspense fallback={null}><Avatar ctl={ctl} gender={gender} /></Suspense>
       </Canvas>
       <header className="movement-header pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 px-5 pt-5">
         <div>
           <h1 dir="ltr" className="text-3xl font-extrabold text-primary">orbit<span className="text-accent">.</span></h1>
           <p className="mt-1 text-xs text-muted-foreground">المقهى · امشِ حول الطاولة</p>
         </div>
+        <Button asChild variant="outline" size="sm" className="pointer-events-auto rounded-full bg-card/90"><Link to="/choose"><UserRound className="size-4" />تغيير الشخصية</Link></Button>
       </header>
       <div className="absolute inset-0 touch-none select-none" aria-label="يسار الشاشة للمشي ويمينها لتحريك الكاميرا" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
       <div ref={base} className="pointer-events-none absolute left-0 top-0 z-10 flex h-[120px] w-[120px] items-center justify-center rounded-full border-2 border-primary/40 bg-secondary/40 invisible"><div ref={knob} className="h-12 w-12 rounded-full bg-primary/80 shadow-soft" /></div>
@@ -197,4 +199,3 @@ export function CafeScene() {
   );
 }
 
-useGLTF.preload(robotModel.url);
