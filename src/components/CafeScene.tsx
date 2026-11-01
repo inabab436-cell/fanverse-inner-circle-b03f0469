@@ -4,17 +4,18 @@ import { ContactShadows, Environment, Lightformer, useAnimations, useGLTF } from
 import * as THREE from "three";
 import { Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { advance, analogInput, type Vec } from "@/lib/movement";
-import { assignPointer, releasePointer, stickVector, type Slots } from "@/lib/touchControls";
+import { advance, type Vec } from "@/lib/movement";
+import { assignPointer, releasePointer, stickVector, zoneFor, type Slots } from "@/lib/touchControls";
 import robotModel from "@/assets/models/avatar-robot.glb.asset.json";
 
 const UNIT = 0.01; // movement px -> metres
 const ROOM = 460; // px
 const TABLE_R = 135; // px
-const LOOK_SPEED = 0.008; // radians of camera turn per dragged px
-const LOOK_SMOOTH = 18; // camera catch-up rate
+const LOOK_SPEED = 0.0075; // radians of camera turn per dragged px
+const LOOK_SMOOTH = 30; // camera catch-up rate
 const FOLLOW_SMOOTH = 10; // camera target follow rate
 const TURN = 10; // body turn-to-camera rate
+const SHOULDER = 0.35;
 const PITCH_DEFAULT = 0.42, PITCH_MIN = 0.12, PITCH_MAX = 0.9;
 type PE = import("react").PointerEvent<HTMLDivElement>;
 
@@ -42,7 +43,7 @@ function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
     const k = 1 - Math.exp(-LOOK_SMOOTH * dt);
     c.camYaw += (c.camYawTarget - c.camYaw) * k;
     c.pitch += (c.pitchTarget - c.pitch) * k;
-    const raw = Math.hypot(c.input.x, c.input.y) ? c.input : c.touch;
+    const raw = c.touch;
     const cs = Math.cos(c.camYaw), sn = Math.sin(c.camYaw);
     const world = { x: raw.x * cs + raw.y * sn, y: -raw.x * sn + raw.y * cs };
     const next = advance(c.pos, c.vel, world, c.fast, dt);
@@ -64,8 +65,9 @@ function Avatar({ ctl }: { ctl: React.MutableRefObject<Ctl> }) {
     const portrait = state.size.height > state.size.width;
     const dist = portrait ? 3.8 : 2.9;
     const h = Math.cos(c.pitch) * dist;
-    cam.position.set(f.x + Math.sin(c.camYaw) * h, f.y + Math.sin(c.pitch) * dist, f.z + Math.cos(c.camYaw) * h);
-    cam.lookAt(f.x, f.y, f.z);
+    const sx = Math.cos(c.camYaw) * SHOULDER, sz = -Math.sin(c.camYaw) * SHOULDER; // over-the-shoulder offset
+    cam.position.set(f.x + sx + Math.sin(c.camYaw) * h, f.y + Math.sin(c.pitch) * dist, f.z + sz + Math.cos(c.camYaw) * h);
+    cam.lookAt(f.x + sx, f.y + 0.15, f.z + sz);
     const host = state.gl.domElement.parentElement;
     host?.setAttribute("data-scene-ready", "1");
     host?.setAttribute("data-pos", `${c.pos.x.toFixed(1)},${c.pos.y.toFixed(1)}`);
@@ -187,9 +189,9 @@ export function CafeScene() {
           <p className="mt-1 text-xs text-muted-foreground">المقهى · امشِ حول الطاولة</p>
         </div>
       </header>
-      <div className="absolute inset-0 touch-none select-none" aria-label="إصبع للمشي وإصبع ثانٍ للالتفات" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
-      <div ref={base} className="pointer-events-none absolute left-0 top-0 z-10 flex h-[120px] w-[120px] items-center justify-center rounded-full border-2 border-primary/40 bg-secondary/40 opacity-0 transition-opacity"><div ref={knob} className="h-12 w-12 rounded-full bg-primary/80 shadow-soft" /></div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-around text-xs text-muted-foreground"><span>إصبع: اسحب للمشي · إصبع ثانٍ: اسحب للالتفات</span></div>
+      <div className="absolute inset-0 touch-none select-none" aria-label="يسار الشاشة للمشي ويمينها لتحريك الكاميرا" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
+      <div ref={base} className="pointer-events-none absolute left-0 top-0 z-10 flex h-[120px] w-[120px] items-center justify-center rounded-full border-2 border-primary/40 bg-secondary/40 invisible"><div ref={knob} className="h-12 w-12 rounded-full bg-primary/80 shadow-soft" /></div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-around text-xs text-muted-foreground"><span>يسار الشاشة: المشي · يمين الشاشة: الاتجاه</span></div>
       <Button variant="outline" className="movement-actions absolute bottom-8 right-6 z-10 h-14 w-14 rounded-full border-2 bg-card text-primary" aria-label="تلويح" onClick={() => { ctl.current.wave = 2; }}><Hand className="size-6" /></Button>
     </div>
   );
