@@ -29,7 +29,7 @@ function Preview({ gender, active }: { gender: Gender; active: boolean }) {
   const { actions } = useAnimations(animations, group);
   const cur = useRef("");
   useFrame((_, dt) => {
-    const want = active ? "emote-yes" : "idle";
+    const want = active ? "Walk_Loop" : "Idle_Loop";
     if (cur.current !== want) { actions[cur.current]?.fadeOut(0.2); actions[want]?.reset().fadeIn(0.2).play(); cur.current = want; }
     if (group.current) group.current.rotation.y += Math.min(dt, 0.05) * (active ? 0.9 : 0.3);
   });
@@ -41,7 +41,7 @@ function Card({ gender, label, note, active, onPick }: { gender: Gender; label: 
     <button type="button" onClick={onPick} aria-pressed={active}
       className={cn("flex flex-1 flex-col overflow-hidden rounded-3xl border-2 bg-card text-card-foreground transition", active ? "border-primary shadow-soft" : "border-border opacity-80")}>
       <div className="h-[34dvh] w-full">
-        <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 1.1, 2.6], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0.7, 0)}>
+        <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 1.15, 3.4], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0.85, 0)}>
           <hemisphereLight args={["#fff4e0", "#5a6a70", 0.9]} />
           <directionalLight position={[2, 4, 3]} intensity={1.6} castShadow />
           <Environment resolution={32}><Lightformer intensity={2} position={[0, 4, 2]} scale={[6, 6, 1]} /></Environment>
@@ -65,11 +65,11 @@ function Choose() {
       <header>
         <h1 dir="ltr" className="text-right text-3xl font-extrabold text-primary">orbit<span className="text-accent">.</span></h1>
         <p className="mt-2 text-xl font-bold text-foreground">اختر شخصيتك</p>
-        <p className="text-sm text-muted-foreground">زي الفانز الموحد: تيشيرت أسود عليه صورة إليسا للجميع. البنت بتسريحة كعكة، والولد بربطة ذهبية.</p>
+        <p className="text-sm text-muted-foreground">زي الفانز الموحد: تيشيرت أسود عليه صورة إليسا، جينز داكن وحذاء أبيض للجميع.</p>
       </header>
       <div className="flex gap-3">
-        <Card gender="girl" label="بنت" note="الزي الموحد · تسريحة كعكة" active={pick === "girl"} onPick={() => setPick("girl")} />
-        <Card gender="boy" label="ولد" note="الزي الموحد · ربطة ذهبية" active={pick === "boy"} onPick={() => setPick("boy")} />
+        <Card gender="girl" label="بنت" note="شعر طويل" active={pick === "girl"} onPick={() => setPick("girl")} />
+        <Card gender="boy" label="ولد" note="شعر قصير" active={pick === "boy"} onPick={() => setPick("boy")} />
       </div>
       <Button size="lg" className="mt-auto h-14 rounded-full text-lg" onClick={() => { saveGender(pick); navigate({ to: "/" }); }}>
         ادخل المقهى
