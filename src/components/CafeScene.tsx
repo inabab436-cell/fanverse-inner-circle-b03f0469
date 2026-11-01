@@ -110,9 +110,10 @@ function Room() {
 }
 
 export function CafeScene() {
-  const ctl = useRef<Ctl>({ input: { x: 0, y: 0 }, fast: false, wave: 0, pos: { x: 120, y: 260 }, vel: { x: 0, y: 0 }, yaw: 0, camYaw: 0 });
-  const look = useRef<{ id: number; x: number } | null>(null);
-  const move = useRef<{ id: number; ox: number; oy: number } | null>(null);
+  const ctl = useRef<Ctl>({ input: { x: 0, y: 0 }, touch: { x: 0, y: 0 }, fast: false, wave: 0, pos: { x: 120, y: 260 }, vel: { x: 0, y: 0 }, yaw: Math.PI, camYaw: 0, camYawTarget: 0, pitch: PITCH_DEFAULT, pitchTarget: PITCH_DEFAULT });
+  const slots = useRef<Slots>({ move: null, look: null });
+  const origin = useRef({ x: 0, y: 0 });
+  const lastLook = useRef({ x: 0, y: 0 });
   const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const R = 60;
@@ -121,24 +122,36 @@ export function CafeScene() {
     b.style.opacity = on ? "1" : "0"; b.style.transform = `translate(${ox - R}px, ${oy - R}px)`;
     k.style.transform = `translate(${dx}px, ${dy}px)`;
   }
+  function startLook(e: PE) { lastLook.current = { x: e.clientX, y: e.clientY }; ctl.current.looking = true; }
   function onDown(e: PE) {
     e.currentTarget.setPointerCapture(e.pointerId);
-    if (e.isPrimary) { move.current = null; look.current = null; ctl.current.looking = false; }
-    if (!move.current) { move.current = { id: e.pointerId, ox: e.clientX, oy: e.clientY }; showStick(e.clientX, e.clientY, 0, 0, true); }
-    else { look.current = { id: e.pointerId, x: e.clientX }; ctl.current.looking = true; }
+    // Mouse on desktop: drag = camera (keys walk). Touch: first free finger walks, the next free one looks.
+    if (e.pointerType === "mouse") {
+      if (slots.current.look === null) { slots.current = { ...slots.current, look: e.pointerId }; startLook(e); }
+      return;
+    }
+    const r = assignPointer(slots.current, e.pointerId);
+    slots.current = r.slots;
+    if (r.role === "move") { origin.current = { x: e.clientX, y: e.clientY }; showStick(e.clientX, e.clientY, 0, 0, true); }
+    else if (r.role === "look") startLook(e);
   }
   function onMove(e: PE) {
-    const m = move.current, l = look.current;
-    if (m && m.id === e.pointerId) {
-      let dx = e.clientX - m.ox, dy = e.clientY - m.oy; const d = Math.hypot(dx, dy);
-      if (d > R) { dx *= R / d; dy *= R / d; }
-      ctl.current.input = analogInput({ x: dx / R, y: dy / R });
-      showStick(m.ox, m.oy, dx, dy, true);
-    } else if (l && l.id === e.pointerId) { ctl.current.camYaw -= (e.clientX - l.x) * LOOK_SPEED; l.x = e.clientX; }
+    if (slots.current.move === e.pointerId) {
+      const s = stickVector(origin.current, { x: e.clientX, y: e.clientY }, R);
+      origin.current = s.origin;
+      ctl.current.touch = s.input;
+      showStick(s.origin.x, s.origin.y, s.knob.x, s.knob.y, true);
+    } else if (slots.current.look === e.pointerId) {
+      const c = ctl.current;
+      c.camYawTarget -= (e.clientX - lastLook.current.x) * LOOK_SPEED;
+      c.pitchTarget = Math.max(PITCH_MIN, Math.min(PITCH_MAX, c.pitchTarget + (e.clientY - lastLook.current.y) * LOOK_SPEED * 0.6));
+      lastLook.current = { x: e.clientX, y: e.clientY };
+    }
   }
   function onUp(e: PE) {
-    if (move.current?.id === e.pointerId) { move.current = null; ctl.current.input = { x: 0, y: 0 }; showStick(0, 0, 0, 0, false); }
-    if (look.current?.id === e.pointerId) { look.current = null; ctl.current.looking = false; }
+    if (slots.current.move === e.pointerId) { ctl.current.touch = { x: 0, y: 0 }; showStick(0, 0, 0, 0, false); }
+    if (slots.current.look === e.pointerId) ctl.current.looking = false;
+    slots.current = releasePointer(slots.current, e.pointerId);
   }
   useEffect(() => {
     const keys = new Set<string>();
