@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { assignPointer, releasePointer, stickVector, zoneFor } from "./touchControls";
 
 describe("touch controls", () => {
-  it("left half walks, right half aims", () => {
-    expect(zoneFor(100, 400)).toBe("move");
-    expect(zoneFor(300, 400)).toBe("look");
+  it("right half walks, left half aims — upright and sideways", () => {
+    expect(zoneFor(300, 400)).toBe("move"); // upright: right half
+    expect(zoneFor(100, 400)).toBe("look"); // upright: left half
+    expect(zoneFor(900, 800)).toBe("move"); // sideways: right half
+    expect(zoneFor(100, 800)).toBe("look"); // sideways: left half
   });
   it("both fingers work at once", () => {
     const a = assignPointer({ move: null, look: null }, 1, "move");

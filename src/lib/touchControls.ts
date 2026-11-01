@@ -1,10 +1,11 @@
-// PUBG-style split screen: a finger that lands on the left half walks, a finger on the right half aims the camera.
+// PUBG-style split screen: one half of the screen walks, the other aims the camera.
+// Walking is on the RIGHT half in both upright and sideways phone layouts.
 // Each side is owned by one pointer id, so lifting one finger never resets the other.
 export type Slots = { move: number | null; look: number | null };
 export type Role = "move" | "look";
 
 export function zoneFor(x: number, width: number): Role {
-  return x < width * 0.5 ? "move" : "look";
+  return x >= width * 0.5 ? "move" : "look";
 }
 
 export function assignPointer(slots: Slots, id: number, zone: Role): { slots: Slots; role: Role | null } {
