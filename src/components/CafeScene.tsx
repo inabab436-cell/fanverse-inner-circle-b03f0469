@@ -64,7 +64,7 @@ function Avatar({ ctl, gender }: { ctl: React.MutableRefObject<Ctl>; gender: Gen
     const f = focus.current ?? (focus.current = new THREE.Vector3(g.position.x, 0.95, g.position.z));
     f.lerp(new THREE.Vector3(g.position.x, 0.95, g.position.z), 1 - Math.exp(-FOLLOW_SMOOTH * dt));
     const portrait = state.size.height > state.size.width;
-    const dist = portrait ? 3.8 : 2.9;
+    const dist = portrait ? 4.6 : 3.6;
     const h = Math.cos(c.pitch) * dist;
     const sx = Math.cos(c.camYaw) * SHOULDER, sz = -Math.sin(c.camYaw) * SHOULDER; // over-the-shoulder offset
     cam.position.set(f.x + sx + Math.sin(c.camYaw) * h, f.y + Math.sin(c.pitch) * dist, f.z + sz + Math.cos(c.camYaw) * h);
