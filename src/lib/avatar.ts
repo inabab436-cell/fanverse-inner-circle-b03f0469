@@ -27,5 +27,6 @@ export const UNIFORM_CELLS: Record<Gender, Recolor[]> = {
     { col: 1, row: 6, color: UNIFORM.base }, { col: 1, row: 7, color: UNIFORM.base },
     { col: 9, row: 6, color: UNIFORM.shirt }, { col: 9, row: 7, color: UNIFORM.shirt },
     { col: 9, row: 4, color: UNIFORM.accent }, { col: 9, row: 5, color: UNIFORM.accent },
+    { col: 11, row: 6, color: "#3a2418" }, { col: 11, row: 7, color: "#3a2418" },
   ],
 };
