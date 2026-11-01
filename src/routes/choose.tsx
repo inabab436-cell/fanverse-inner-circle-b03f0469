@@ -65,7 +65,7 @@ function Choose() {
       <header>
         <h1 dir="ltr" className="text-right text-3xl font-extrabold text-primary">orbit<span className="text-accent">.</span></h1>
         <p className="mt-2 text-xl font-bold text-foreground">اختر شخصيتك</p>
-        <p className="text-sm text-muted-foreground">زي الفانز الموحد: أسود مع قميص فيروزي. البنت بتسريحة شعر طويلة، والولد بربطة عنق ذهبية.</p>
+        <p className="text-sm text-muted-foreground">زي الفانز الموحد: أسود مع قميص فيروزي. البنت بتسريحة كعكة، والولد بربطة عنق ذهبية.</p>
       </header>
       <div className="flex gap-3">
         <Card gender="girl" label="بنت" note="الزي الموحد · تسريحة كعكة" active={pick === "girl"} onPick={() => setPick("girl")} />
