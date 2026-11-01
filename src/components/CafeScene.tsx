@@ -189,6 +189,7 @@ export function CafeScene({ gender }: { gender: Gender }) {
           <h1 dir="ltr" className="text-3xl font-extrabold text-primary">orbit<span className="text-accent">.</span></h1>
           <p className="mt-1 text-xs text-muted-foreground">المقهى · امشِ حول الطاولة</p>
         </div>
+        <Button asChild variant="outline" size="sm" className="pointer-events-auto rounded-full bg-card/90"><Link to="/choose"><UserRound className="size-4" />تغيير الشخصية</Link></Button>
       </header>
       <div className="absolute inset-0 touch-none select-none" aria-label="يسار الشاشة للمشي ويمينها لتحريك الكاميرا" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
       <div ref={base} className="pointer-events-none absolute left-0 top-0 z-10 flex h-[120px] w-[120px] items-center justify-center rounded-full border-2 border-primary/40 bg-secondary/40 invisible"><div ref={knob} className="h-12 w-12 rounded-full bg-primary/80 shadow-soft" /></div>
