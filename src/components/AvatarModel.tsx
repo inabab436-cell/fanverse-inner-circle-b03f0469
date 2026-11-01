@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
-import { useGLTF } from "@react-three/drei";
+import { useGLTF, useTexture } from "@react-three/drei";
+import printAsset from "@/assets/elissa_shirt_print.jpg.asset.json";
 import * as THREE from "three";
 import { SkeletonUtils } from "three-stdlib";
 import boyModel from "@/assets/models/avatar-boy.glb.asset.json";
@@ -7,6 +8,8 @@ import girlModel from "@/assets/models/avatar-girl.glb.asset.json";
 import { UNIFORM_CELLS, type Gender } from "@/lib/avatar";
 
 export const AVATAR_HEIGHT = 1.45; // metres
+/** Chest print placement in metres relative to the torso bone. */
+export const PRINT = { size: 0.3, y: { boy: 0.22, girl: 0.22 } as Record<Gender, number>, z: { boy: 0.3, girl: 0.3 } as Record<Gender, number> };
 export const modelUrl = (g: Gender) => (g === "boy" ? boyModel.url : girlModel.url);
 
 function uniformTexture(src: THREE.Texture, g: Gender) {
@@ -33,6 +36,7 @@ function uniformTexture(src: THREE.Texture, g: Gender) {
 /** Cloned, uniform-dressed avatar scaled to AVATAR_HEIGHT with feet at y=0. */
 export function useAvatar(g: Gender) {
   const { scene, animations } = useGLTF(modelUrl(g));
+  const print = useTexture(printAsset.url);
   const obj = useMemo(() => {
     const clone = SkeletonUtils.clone(scene) as THREE.Object3D;
     let tex: THREE.Texture | null = null;
@@ -50,8 +54,17 @@ export function useAvatar(g: Gender) {
     const s = AVATAR_HEIGHT / h;
     clone.scale.setScalar(s);
     clone.position.y = -box.min.y * s;
+    // Elissa print on the chest, attached to the torso bone so it follows the animation
+    const torso = clone.getObjectByName("torso");
+    if (torso) {
+      print.colorSpace = THREE.SRGBColorSpace;
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(PRINT.size / s, PRINT.size / s), new THREE.MeshStandardMaterial({ map: print, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2 }));
+      plane.position.set(0, PRINT.y[g] / s, PRINT.z[g] / s);
+      plane.name = "shirt-print";
+      torso.add(plane);
+    }
     return clone;
-  }, [scene, g]);
+  }, [scene, g, print]);
   useEffect(() => () => { obj.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) (m.material as THREE.Material).dispose(); }); }, [obj]);
   return { obj, animations };
 }
