@@ -56,6 +56,7 @@ export function useAvatar(g: Gender) {
     clone.position.y = -box.min.y * s;
     // Elissa print on the chest, attached to the torso bone so it follows the animation
     const torso = clone.getObjectByName("torso");
+    console.log("PRINTDBG", !!torso, s);
     if (torso) {
       print.colorSpace = THREE.SRGBColorSpace;
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(PRINT.size / s, PRINT.size / s), new THREE.MeshStandardMaterial({ map: print, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2 }));
