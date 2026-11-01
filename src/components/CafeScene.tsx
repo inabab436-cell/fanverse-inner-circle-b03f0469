@@ -189,9 +189,9 @@ export function CafeScene() {
           <p className="mt-1 text-xs text-muted-foreground">المقهى · امشِ حول الطاولة</p>
         </div>
       </header>
-      <div className="absolute inset-0 touch-none select-none" aria-label="يمين الشاشة للمشي ويسارها لتحريك الكاميرا" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
+      <div className="absolute inset-0 touch-none select-none" aria-label="يسار الشاشة للمشي ويمينها لتحريك الكاميرا" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} />
       <div ref={base} className="pointer-events-none absolute left-0 top-0 z-10 flex h-[120px] w-[120px] items-center justify-center rounded-full border-2 border-primary/40 bg-secondary/40 invisible"><div ref={knob} className="h-12 w-12 rounded-full bg-primary/80 shadow-soft" /></div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-around text-xs text-muted-foreground"><span>يمين الشاشة: المشي · يسار الشاشة: الاتجاه</span></div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-around text-xs text-muted-foreground"><span>يسار الشاشة: المشي · يمين الشاشة: الاتجاه</span></div>
       <Button variant="outline" className="movement-actions absolute bottom-8 right-6 z-10 h-14 w-14 rounded-full border-2 bg-card text-primary" aria-label="تلويح" onClick={() => { ctl.current.wave = 2; }}><Hand className="size-6" /></Button>
     </div>
   );
