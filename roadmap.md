@@ -13,3 +13,5 @@
 - طلب المستخدم: إصدارات أقوى تعبيرًا عن فكرة orbit (انتماء/ترابط/حركة) مع الحفاظ على البساطة المرحة
 - المستخدم اختار concept-10 وطلب إضافة كلمة orbit تحته مع تظبيط الشكل قليلًا (تم رفع الصورة من عنده)
 - المستخدم طلب النسخة المبتسمة (final-2) بخلفية بيضاء كملف يحفظه
+
+- [ ] Rigged boy/girl avatars matching user reference (black tee with Elissa print, cargo jeans, white sneakers) with idle/walk/run/turn/jump/sit — waiting on user choice of approach
