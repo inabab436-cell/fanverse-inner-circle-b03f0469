@@ -5,12 +5,13 @@ import * as THREE from "three";
 import { SkeletonUtils } from "three-stdlib";
 import boyModel from "@/assets/models/avatar-boy.glb.asset.json";
 import girlModel from "@/assets/models/avatar-girl.glb.asset.json";
+import customModel from "@/assets/models/avatar-custom.glb.asset.json";
 import { UNIFORM_CELLS, type Gender } from "@/lib/avatar";
 
 export const AVATAR_HEIGHT = 1.45; // metres
 /** Chest print placement in metres relative to the torso bone. */
-export const PRINT = { size: 0.3, y: { boy: 0.22, girl: 0.22 } as Record<Gender, number>, z: { boy: 0.3, girl: 0.3 } as Record<Gender, number> };
-export const modelUrl = (g: Gender) => (g === "boy" ? boyModel.url : girlModel.url);
+export const PRINT = { size: 0.3, y: { boy: 0.22, girl: 0.22, custom: 0 } as Record<Gender, number>, z: { boy: 0.3, girl: 0.3, custom: 0 } as Record<Gender, number> };
+export const modelUrl = (g: Gender) => (g === "custom" ? customModel.url : g === "boy" ? boyModel.url : girlModel.url);
 
 function uniformTexture(src: THREE.Texture, g: Gender) {
   const img = src.image as CanvasImageSource & { width: number; height: number };
@@ -45,7 +46,7 @@ export function useAvatar(g: Gender) {
       if (!m.isMesh) return;
       m.castShadow = true;
       const mat = (m.material as THREE.MeshStandardMaterial).clone();
-      if (mat.map) { tex ??= uniformTexture(mat.map, g); mat.map = tex; }
+      if (mat.map && g !== "custom") { tex ??= uniformTexture(mat.map, g); mat.map = tex; }
       mat.roughness = 0.7;
       m.material = mat;
     });
@@ -53,10 +54,12 @@ export function useAvatar(g: Gender) {
     const h = box.max.y - box.min.y || 1;
     const s = AVATAR_HEIGHT / h;
     clone.scale.setScalar(s);
+    clone.position.x = -(box.min.x + box.max.x) * 0.5 * s;
+    clone.position.z = -(box.min.z + box.max.z) * 0.5 * s;
     clone.position.y = -box.min.y * s;
     // Elissa print on the chest, attached to the torso bone so it follows the animation
     const torso = clone.getObjectByName("torso");
-    if (torso) {
+    if (torso && g !== "custom") {
       print.colorSpace = THREE.SRGBColorSpace;
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(PRINT.size / s, PRINT.size / s), new THREE.MeshStandardMaterial({ map: print, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2 }));
       plane.position.set(0, PRINT.y[g] / s, PRINT.z[g] / s);
@@ -71,3 +74,4 @@ export function useAvatar(g: Gender) {
 
 useGLTF.preload(boyModel.url);
 useGLTF.preload(girlModel.url);
+useGLTF.preload(customModel.url);
