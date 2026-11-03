@@ -50,8 +50,8 @@ function Avatar({ ctl, gender }: { ctl: React.MutableRefObject<Ctl>; gender: Gen
     c.vel = next.velocity;
     c.pos = clampToRoom({ x: next.position.x, y: next.position.y });
     const speed = Math.hypot(c.vel.x, c.vel.y);
-    // body faces where the camera looks whenever walking or looking around
-    if (speed > 15 || c.looking) { const target = c.camYaw + Math.PI; c.yaw += Math.atan2(Math.sin(target - c.yaw), Math.cos(target - c.yaw)) * (1 - Math.exp(-TURN * dt)); }
+    // body faces its walking direction, so walking toward the camera shows the face
+    if (speed > 15) { const target = Math.atan2(c.vel.x, c.vel.y); c.yaw += Math.atan2(Math.sin(target - c.yaw), Math.cos(target - c.yaw)) * (1 - Math.exp(-TURN * dt)); }
     const g = group.current!;
     g.position.set(c.pos.x * UNIT, 0, c.pos.y * UNIT);
     g.rotation.y = c.yaw;
