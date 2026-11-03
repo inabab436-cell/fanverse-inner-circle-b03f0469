@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Add uploaded GLB as a selectable character while preserving existing movement and camera.
 - [ ] Replace active old features with phone-first 2D walking and viewing, without world design.
 - [ ] Verify touch movement, camera, and desktop fallback.
 - [x] Live room (realtime chat + presence) inside artist world

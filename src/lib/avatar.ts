@@ -1,11 +1,11 @@
-export type Gender = "boy" | "girl";
+export type Gender = "boy" | "girl" | "custom";
 
 const KEY = "orbit.gender";
 
 export function readGender(): Gender | null {
   try {
     const v = window.localStorage.getItem(KEY);
-    return v === "boy" || v === "girl" ? v : null;
+    return v === "boy" || v === "girl" || v === "custom" ? v : null;
   } catch { return null; }
 }
 
@@ -19,6 +19,7 @@ export const UNIFORM = { base: "#16181d", shirt: "#111214", accent: "#d4a645" };
 /** Texture-atlas cells (32x64 px columns/rows of the 512px colormap) recoloured per model. */
 export type Recolor = { col: number; row: number; color: string };
 export const UNIFORM_CELLS: Record<Gender, Recolor[]> = {
+  custom: [],
   girl: [
     { col: 3, row: 6, color: UNIFORM.base }, { col: 3, row: 7, color: UNIFORM.base },
     { col: 9, row: 6, color: UNIFORM.shirt }, { col: 9, row: 7, color: UNIFORM.shirt },

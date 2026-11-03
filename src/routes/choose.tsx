@@ -12,9 +12,9 @@ export const Route = createFileRoute("/choose")({
   head: () => ({
     meta: [
       { title: "اختر شخصيتك — orbit" },
-      { name: "description", content: "اختر ولد أو بنت بزي الفانز الموحد قبل دخول مقهى orbit." },
+      { name: "description", content: "اختر شخصيتك المرفوعة أو ولدًا أو بنتًا قبل دخول مقهى orbit." },
       { property: "og:title", content: "اختر شخصيتك — orbit" },
-      { property: "og:description", content: "ولد أو بنت، بزي موحد للجميع." },
+      { property: "og:description", content: "شخصيتك الخاصة وشخصيات الفانز في مقهى orbit." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -38,9 +38,9 @@ function Preview({ gender, active }: { gender: Gender; active: boolean }) {
 
 function Card({ gender, label, note, active, onPick }: { gender: Gender; label: string; note: string; active: boolean; onPick: () => void }) {
   return (
-    <button type="button" onClick={onPick} aria-pressed={active}
-      className={cn("flex flex-1 flex-col overflow-hidden rounded-3xl border-2 bg-card text-card-foreground transition", active ? "border-primary shadow-soft" : "border-border opacity-80")}>
-      <div className="h-[34dvh] w-full">
+    <Button type="button" variant="ghost" onClick={onPick} aria-pressed={active}
+      className={cn("flex h-auto min-w-0 flex-col gap-0 overflow-hidden rounded-lg border-2 bg-card p-0 text-card-foreground whitespace-normal transition", gender === "custom" ? "col-span-2" : "", active ? "border-primary shadow-soft" : "border-border opacity-80")}>
+      <div className="h-[26dvh] w-full">
         <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 1.1, 2.6], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0.7, 0)}>
           <hemisphereLight args={["#fff4e0", "#5a6a70", 0.9]} />
           <directionalLight position={[2, 4, 3]} intensity={1.6} castShadow />
@@ -53,13 +53,13 @@ function Card({ gender, label, note, active, onPick }: { gender: Gender; label: 
         <p className="text-lg font-bold">{label}</p>
         <p className="text-xs text-muted-foreground">{note}</p>
       </div>
-    </button>
+    </Button>
   );
 }
 
 function Choose() {
   const navigate = useNavigate();
-  const [pick, setPick] = useState<Gender>(() => readGender() ?? "girl");
+  const [pick, setPick] = useState<Gender>(() => readGender() ?? "custom");
   return (
     <main className="flex min-h-dvh flex-col gap-5 bg-background px-5 py-6">
       <header>
@@ -67,7 +67,8 @@ function Choose() {
         <p className="mt-2 text-xl font-bold text-foreground">اختر شخصيتك</p>
         <p className="text-sm text-muted-foreground">زي الفانز الموحد: تيشيرت أسود عليه صورة إليسا للجميع. البنت بتسريحة كعكة، والولد بربطة ذهبية.</p>
       </header>
-      <div className="flex gap-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Card gender="custom" label="شخصيتي" note="" active={pick === "custom"} onPick={() => setPick("custom")} />
         <Card gender="girl" label="بنت" note="الزي الموحد · تسريحة كعكة" active={pick === "girl"} onPick={() => setPick("girl")} />
         <Card gender="boy" label="ولد" note="الزي الموحد · ربطة ذهبية" active={pick === "boy"} onPick={() => setPick("boy")} />
       </div>
